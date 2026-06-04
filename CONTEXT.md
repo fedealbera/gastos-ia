@@ -39,13 +39,16 @@ lib/
 │   │   └── app_theme.dart         # Temas M3 Light/Dark y tokens visuales premium (Slate & Teal)
 │   ├── usecases/
 │   │   └── usecase.dart           # Firma de UseCases base
-│   └── utils/
-│       └── color_helper.dart      # Auxiliar para parsear colores hexadecimales y calcular contrastes de texto
+│   ├── utils/
+│   │   └── color_helper.dart      # Auxiliar para parsear colores hexadecimales y calcular contrastes de texto
+│   └── widgets/
+│       └── app_logo.dart          # Logo animado premium con degradados, sombras y destello AI
 └── features/                      # Módulos aislados y escalables por dominio de negocio
     ├── splash/
     │   └── presentation/
     │       └── pages/
-    │           └── splash_page.dart # Pantalla de carga animada y calentamiento de Base de Datos
+    │           ├── splash_page.dart # Pantalla de carga animada y calentamiento de Base de Datos
+    │           └── onboarding_page.dart # Registro de bienvenida (nombre de usuario) en primer lanzamiento
     ├── dashboard/
     │   ├── domain/
     │   │   ├── entities/
@@ -102,6 +105,7 @@ lib/
             │   └── expenses_bloc.dart # Manejo de eventos CRUD de transacciones e historial por rangos
             └── pages/
                 ├── expenses_list_page.dart # Historial cronológico con barras de búsqueda y selectores de rangos
+                ├── category_expenses_page.dart # Listado y agregados de transacciones filtradas por categoría
                 └── expense_form_page.dart # Registro con teclado numérico, chips dinámicos y fecha editable
 ```
 
