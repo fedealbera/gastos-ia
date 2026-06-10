@@ -4,7 +4,7 @@ Este documento sirve como la fuente única de verdad para contextualizar la estr
 
 ---
 
-## 🏗️ 1. Arquitectura y Tecnologías Core
+## 🏗️ 1. Arquitectura y Tecnologías Core 
 
 La aplicación está construida sobre **Flutter stable** utilizando **Clean Architecture** estructurada por *features*. Esto asegura desacoplamiento total, escalabilidad, y preparación para futuras migraciones (por ejemplo, de almacenamiento local a una API REST remota o Firebase).
 
