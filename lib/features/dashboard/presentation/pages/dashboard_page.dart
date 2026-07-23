@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/routes/app_router.dart';
 import '../../../../core/utils/color_helper.dart';
+import '../../../../core/widgets/custom_date_range_picker.dart';
 import '../bloc/dashboard_bloc.dart';
 import '../../../expenses/domain/entities/expense.dart';
 import '../../domain/entities/dashboard_stats.dart';
@@ -23,6 +24,9 @@ class _DashboardPageState extends State<DashboardPage> {
   late DashboardBloc _dashboardBloc;
   late DateTime _selectedMonth;
   late String _userName;
+  bool _isCustomRange = false;
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
 
   @override
   void initState() {
@@ -34,9 +38,15 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _loadData() {
-    final start = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-    final end = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
-    _dashboardBloc.add(LoadDashboardData(start: start, end: end));
+    if (_isCustomRange && _customStartDate != null && _customEndDate != null) {
+      final start = DateTime(_customStartDate!.year, _customStartDate!.month, _customStartDate!.day);
+      final end = DateTime(_customEndDate!.year, _customEndDate!.month, _customEndDate!.day, 23, 59, 59);
+      _dashboardBloc.add(LoadDashboardData(start: start, end: end));
+    } else {
+      final start = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+      final end = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
+      _dashboardBloc.add(LoadDashboardData(start: start, end: end));
+    }
   }
 
   void _changeMonth(int offset) {
@@ -104,8 +114,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           _buildBranding(theme),
                           const SizedBox(height: 16.0),
 
-                          // Month Picker
-                          _buildMonthPicker(theme, isDark),
+                          // Date Picker Section (Monthly or Custom range)
+                          _buildDatePickerSection(theme, isDark),
                           const SizedBox(height: 24.0),
 
                           // Total spent card
@@ -129,8 +139,26 @@ class _DashboardPageState extends State<DashboardPage> {
                             _buildEmptyState(theme, isDark),
 
                           // Recent transaction list
-                          Text('Gastos Recientes', style: theme.textTheme.headlineMedium),
-                          const SizedBox(height: 16.0),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Gastos Recientes', style: theme.textTheme.headlineMedium),
+                              TextButton(
+                                onPressed: () async {
+                                  await context.push(AppRouter.expenses);
+                                  _loadData();
+                                },
+                                child: Text(
+                                  'Ver Todo',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12.0),
                           _buildRecentExpensesList(theme, isDark, stats.recentExpenses, currencyFormat),
                           const SizedBox(height: 40.0),
                         ],
@@ -224,6 +252,170 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildDatePickerSection(ThemeData theme, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildTabButton(
+              theme: theme,
+              isDark: isDark,
+              title: 'Mensual',
+              isSelected: !_isCustomRange,
+              onTap: () {
+                setState(() {
+                  _isCustomRange = false;
+                });
+                _loadData();
+              },
+            ),
+            const SizedBox(width: 8.0),
+            _buildTabButton(
+              theme: theme,
+              isDark: isDark,
+              title: 'Rango de Fechas',
+              isSelected: _isCustomRange,
+              onTap: () {
+                setState(() {
+                  _isCustomRange = true;
+                });
+                if (_customStartDate == null || _customEndDate == null) {
+                  _selectCustomDateRange();
+                } else {
+                  _loadData();
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12.0),
+        _isCustomRange
+            ? _buildCustomRangePicker(theme, isDark)
+            : _buildMonthPicker(theme, isDark),
+      ],
+    );
+  }
+
+  Widget _buildTabButton({
+    required ThemeData theme,
+    required bool isDark,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final activeColor = theme.colorScheme.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.15)
+              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(20.0),
+          border: Border.all(
+            color: isSelected
+                ? activeColor
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          title,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: isSelected
+                ? activeColor
+                : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomRangePicker(ThemeData theme, bool isDark) {
+    final hasRange = _customStartDate != null && _customEndDate != null;
+    final rangeText = hasRange
+        ? '${DateFormat('dd/MM/yyyy').format(_customStartDate!)} - ${DateFormat('dd/MM/yyyy').format(_customEndDate!)}'
+        : 'Seleccionar rango de fechas...';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: _selectCustomDateRange,
+              borderRadius: BorderRadius.circular(12.0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 18,
+                      color: hasRange ? theme.colorScheme.primary : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    ),
+                    const SizedBox(width: 10.0),
+                    Expanded(
+                      child: Text(
+                        rangeText,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: hasRange ? null : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (hasRange)
+            IconButton(
+              icon: const Icon(Icons.clear_rounded, size: 20),
+              onPressed: () {
+                setState(() {
+                  _customStartDate = null;
+                  _customEndDate = null;
+                });
+                _loadData();
+              },
+              tooltip: 'Limpiar filtro',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectCustomDateRange() async {
+    final picked = await showCustomDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      initialDateRange: _customStartDate != null && _customEndDate != null
+          ? DateTimeRange(start: _customStartDate!, end: _customEndDate!)
+          : null,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _customStartDate = picked.start;
+        _customEndDate = picked.end;
+      });
+      _loadData();
+    }
   }
 
   Widget _buildMonthPicker(ThemeData theme, bool isDark) {
@@ -354,13 +546,18 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: Icon(Icons.add_rounded, color: theme.colorScheme.primary, size: 28),
                   ),
                   const SizedBox(height: 10.0),
-                  Text('Nuevo Gasto', style: theme.textTheme.titleMedium),
+                  Text(
+                    'Nuevo Gasto',
+                    style: theme.textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
           ),
         ),
-        const SizedBox(width: 16.0),
+        const SizedBox(width: 12.0),
         Expanded(
           child: InkWell(
             onTap: () async {
@@ -388,7 +585,51 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: Icon(Icons.grid_view_rounded, color: theme.colorScheme.secondary, size: 28),
                   ),
                   const SizedBox(height: 10.0),
-                  Text('Categorías', style: theme.textTheme.titleMedium),
+                  Text(
+                    'Categorías',
+                    style: theme.textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12.0),
+        Expanded(
+          child: InkWell(
+            onTap: () async {
+              await context.push(AppRouter.expenses);
+              _loadData();
+            },
+            borderRadius: BorderRadius.circular(20.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 20.0),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(20.0),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.history_rounded, color: Color(0xFF8B5CF6), size: 28),
+                  ),
+                  const SizedBox(height: 10.0),
+                  Text(
+                    'Historial',
+                    style: theme.textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),

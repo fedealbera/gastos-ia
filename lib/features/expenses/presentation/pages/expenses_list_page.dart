@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/utils/color_helper.dart';
 import '../../../../core/routes/app_router.dart';
+import '../../../../core/widgets/custom_date_range_picker.dart';
 import '../bloc/expenses_bloc.dart';
 
 class ExpensesListPage extends StatefulWidget {
@@ -50,24 +51,13 @@ class _ExpensesListPageState extends State<ExpensesListPage> {
   }
 
   Future<void> _selectDateRange() async {
-    final picked = await showDateRangePicker(
+    final picked = await showCustomDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       initialDateRange: _startDate != null && _endDate != null
           ? DateTimeRange(start: _startDate!, end: _endDate!)
           : null,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: Theme.of(context).colorScheme.primary,
-                  onPrimary: Colors.white,
-                ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
