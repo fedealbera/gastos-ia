@@ -248,20 +248,36 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
     '#EC4899', // Hot Pink
     '#06B6D4', // Deep Teal
     '#F97316', // Bright Orange
+    '#6366F1', // Indigo
+    '#14B8A6', // Mint Teal
+    '#A855F7', // Deep Purple
+    '#E11D48', // Rose Red
+    '#84CC16', // Lime Green
+    '#0EA5E9', // Light Blue
+    '#64748B', // Slate Grey
+    '#D946EF', // Fuchsia
   ];
 
   // Selected custom icons list
-  final List<int> _icons = [
-    0xe57c, // shopping_cart
-    0xe30c, // local_gas_station
-    0xe574, // restaurant
-    0xe530, // directions_bus
-    0xe0b0, // electrical_services
-    0xe406, // movie
-    0xe244, // fitness_center
-    0xeb3f, // school
-    0xe333, // home
-    0xe556, // local_hospital
+  final List<IconData> _icons = [
+    Icons.shopping_cart_rounded,
+    Icons.local_gas_station_rounded,
+    Icons.account_balance_rounded,
+    Icons.sports_soccer_rounded,
+    Icons.electrical_services_rounded,
+    Icons.directions_car_rounded,
+    Icons.security_rounded,
+    Icons.restaurant_rounded,
+    Icons.directions_bus_rounded,
+    Icons.movie_rounded,
+    Icons.fitness_center_rounded,
+    Icons.school_rounded,
+    Icons.home_rounded,
+    Icons.local_hospital_rounded,
+    Icons.flight_rounded,
+    Icons.credit_card_rounded,
+    Icons.card_giftcard_rounded,
+    Icons.pets_rounded,
   ];
 
   @override
@@ -270,7 +286,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
     final cat = widget.category;
     _nameController = TextEditingController(text: cat?.name ?? '');
     _selectedColorHex = cat?.colorHex ?? _colors[0];
-    _selectedIconCode = cat?.iconCodePoint ?? _icons[0];
+    _selectedIconCode = cat?.iconCodePoint ?? _icons[0].codePoint;
   }
 
   @override
@@ -407,14 +423,14 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                   itemCount: _icons.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 12.0),
                   itemBuilder: (context, idx) {
-                    final iconCode = _icons[idx];
-                    final isSelected = iconCode == _selectedIconCode;
+                    final iconData = _icons[idx];
+                    final isSelected = iconData.codePoint == _selectedIconCode;
                     final activeColor = ColorHelper.fromHex(_selectedColorHex);
 
                     return GestureDetector(
                       onTap: () {
                         setState(() {
-                          _selectedIconCode = iconCode;
+                          _selectedIconCode = iconData.codePoint;
                         });
                       },
                       child: Container(
@@ -429,7 +445,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                           border: isSelected ? Border.all(color: activeColor, width: 2) : null,
                         ),
                         child: Icon(
-                          IconData(iconCode, fontFamily: 'MaterialIcons'),
+                          iconData,
                           color: isSelected ? activeColor : theme.iconTheme.color,
                           size: 24.0,
                         ),

@@ -7,9 +7,11 @@ import 'package:intl/intl.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/routes/app_router.dart';
 import '../../../../core/utils/color_helper.dart';
+import '../../../../core/utils/export_helper.dart';
 import '../../../../core/widgets/custom_date_range_picker.dart';
 import '../bloc/dashboard_bloc.dart';
 import '../../../expenses/domain/entities/expense.dart';
+import '../../../expenses/domain/usecases/get_expenses_by_date_range.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../../../core/database/hive_database.dart';
 
@@ -455,64 +457,127 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  Future<void> _exportReport() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    try {
+      DateTime start;
+      DateTime end;
+      String periodTitle;
+      
+      if (_isCustomRange && _customStartDate != null && _customEndDate != null) {
+        start = DateTime(_customStartDate!.year, _customStartDate!.month, _customStartDate!.day);
+        end = DateTime(_customEndDate!.year, _customEndDate!.month, _customEndDate!.day, 23, 59, 59);
+        periodTitle = '${DateFormat('dd-MM-yyyy').format(start)} - ${DateFormat('dd-MM-yyyy').format(end)}';
+      } else {
+        start = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+        end = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
+        periodTitle = DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth);
+      }
+      
+      final getExpensesByDateRange = getIt<GetExpensesByDateRange>();
+      final expenses = await getExpensesByDateRange(DateRangeParams(start: start, end: end));
+      
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Dismiss loading
+      
+      if (expenses.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay gastos en el período seleccionado para exportar.')),
+        );
+        return;
+      }
+      
+      await ExportHelper.exportExpensesToExcel(
+        expenses: expenses,
+        periodTitle: periodTitle,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al exportar reporte: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildTotalSpentCard(ThemeData theme, bool isDark, double totalSpent, NumberFormat format) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24.0),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF0F766E), const Color(0xFF0D9488)]
-              : [const Color(0xFF0D9488), const Color(0xFF14B8A6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28.0),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withValues(alpha: 0.25),
-            blurRadius: 24.0,
-            offset: const Offset(0, 8),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'Total Gastado este Mes',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [const Color(0xFF0F766E), const Color(0xFF0D9488)]
+                  : [const Color(0xFF0D9488), const Color(0xFF14B8A6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(28.0),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                blurRadius: 24.0,
+                offset: const Offset(0, 8),
+              )
+            ],
           ),
-          const SizedBox(height: 8.0),
-          Text(
-            '\$ ${NumberFormat('#,##0.00', 'es_AR').format(totalSpent)}',
-            style: theme.textTheme.headlineLarge?.copyWith(
-              color: Colors.white,
-              fontSize: 42.0,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1,
-            ),
-          ),
-          const SizedBox(height: 16.0),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.trending_up_rounded, color: Colors.white.withValues(alpha: 0.8), size: 18),
-              const SizedBox(width: 6.0),
               Text(
-                'Presupuesto saludable en curso',
+                _isCustomRange ? 'Total Gastado en el Período' : 'Total Gastado este Mes',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 12.0,
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(height: 8.0),
+              Text(
+                '\$ ${NumberFormat('#,##0.00', 'es_AR').format(totalSpent)}',
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  color: Colors.white,
+                  fontSize: 42.0,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1,
+                ),
+              ),
+              const SizedBox(height: 16.0),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.trending_up_rounded, color: Colors.white.withValues(alpha: 0.8), size: 18),
+                  const SizedBox(width: 6.0),
+                  Text(
+                    'Presupuesto saludable en curso',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 12.0,
+                    ),
+                  ),
+                ],
+              )
             ],
-          )
-        ],
-      ),
+          ),
+        ),
+        if (totalSpent > 0)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: IconButton(
+              icon: const Icon(Icons.share_rounded, color: Colors.white),
+              tooltip: 'Exportar informe Excel',
+              onPressed: _exportReport,
+            ),
+          ),
+      ],
     );
   }
 

@@ -7,8 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/utils/color_helper.dart';
 import '../../../../core/routes/app_router.dart';
+import '../../../../core/utils/export_helper.dart';
 import '../../../../core/widgets/custom_date_range_picker.dart';
 import '../bloc/expenses_bloc.dart';
+import '../../domain/entities/expense.dart';
 
 class ExpensesListPage extends StatefulWidget {
   const ExpensesListPage({super.key});
@@ -77,6 +79,55 @@ class _ExpensesListPageState extends State<ExpensesListPage> {
     _loadExpenses();
   }
 
+  Future<void> _exportFilteredExpenses(List<Expense> allExpenses) async {
+    final filtered = allExpenses.where((expense) {
+      if (_searchQuery.isEmpty) return true;
+      return (expense.description?.toLowerCase().contains(_searchQuery) ?? false) ||
+          expense.categoryName.toLowerCase().contains(_searchQuery);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay gastos que coincidan con los filtros activos.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      String periodTitle;
+      if (_startDate != null && _endDate != null) {
+        periodTitle = 'Filtro: ${DateFormat('dd-MM-yyyy').format(_startDate!)} - ${DateFormat('dd-MM-yyyy').format(_endDate!)}';
+      } else {
+        periodTitle = 'Historial Completo';
+      }
+
+      if (_searchQuery.isNotEmpty) {
+        periodTitle += ' (Búsqueda: $_searchQuery)';
+      }
+
+      await ExportHelper.exportExpensesToExcel(
+        expenses: filtered,
+        periodTitle: periodTitle,
+      );
+      
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Pop loading
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Pop loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al exportar: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -93,6 +144,19 @@ class _ExpensesListPageState extends State<ExpensesListPage> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           actions: [
+            BlocBuilder<ExpensesBloc, ExpensesState>(
+              bloc: _expensesBloc,
+              builder: (context, state) {
+                if (state is ExpensesLoaded && state.expenses.isNotEmpty) {
+                  return IconButton(
+                    icon: const Icon(Icons.share_rounded),
+                    tooltip: 'Exportar a Excel',
+                    onPressed: () => _exportFilteredExpenses(state.expenses),
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
             IconButton(
               icon: Icon(
                 _startDate != null ? Icons.date_range_rounded : Icons.date_range_outlined,

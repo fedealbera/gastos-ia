@@ -14,6 +14,7 @@ La aplicación está construida sobre **Flutter stable** utilizando **Clean Arch
 * **Navegación**: `go_router` para enrutamiento declarativo e incorporando animaciones de transición personalizadas.
 * **Inyección de Dependencias**: `get_it` para registro y resolución de dependencias por capas.
 * **Estadísticas**: `fl_chart` para renderizar gráficos de torta y barras interactivos.
+* **Exportación y Compartición de Informes**: `excel` para la generación estructurada de libros de trabajo en formato XLSX, `share_plus` para gatillar el diálogo nativo de compartir y `path_provider` para localizar directorios temporales de manera multiplataforma.
 * **Testing**: `mocktail` y `flutter_test` para unit testing robusto de agregaciones y repositorios.
 
 ---
@@ -28,7 +29,7 @@ lib/
 ├── app.dart                       # Configura MaterialApp con Material 3 Light/Dark y GoRouter
 ├── core/                          # Compartido por todas las features de la app
 │   ├── database/
-│   │   └── hive_database.dart     # Inicializa Hive, registra adaptadores manuales y siembra categorías por defecto
+│   │   └── hive_database.dart     # Inicializa Hive, registra adaptadores manuales, siembra y migra categorías
 │   ├── di/
 │   │   └── injection.dart         # Registro centralizado de dependencias y Blocs con GetIt
 │   ├── errors/
@@ -40,7 +41,8 @@ lib/
 │   ├── usecases/
 │   │   └── usecase.dart           # Firma de UseCases base
 │   ├── utils/
-│   │   └── color_helper.dart      # Auxiliar para parsear colores hexadecimales y calcular contrastes de texto
+│   │   ├── color_helper.dart      # Auxiliar para parsear colores hexadecimales y calcular contrastes de texto
+│   │   └── export_helper.dart     # Utilidad para formatear, construir y compartir hojas de cálculo de Excel
 │   └── widgets/
 │       └── app_logo.dart          # Logo animado premium con degradados, sombras y destello AI
 └── features/                      # Módulos aislados y escalables por dominio de negocio
@@ -59,7 +61,7 @@ lib/
     │       ├── bloc/
     │       │   └── dashboard_bloc.dart # Administra estados del ciclo analítico mensual
     │       └── pages/
-    │           └── dashboard_page.dart # Hub analítico con fl_chart Pie/Bar y listas de transacciones
+    │           └── dashboard_page.dart # Hub analítico con fl_chart Pie/Bar, botón de exportación y listas
     ├── categories/
     │   ├── domain/
     │   │   ├── entities/
@@ -81,7 +83,7 @@ lib/
     │       ├── bloc/
     │       │   └── categories_bloc.dart # Control de estados para el CRUD de Categorías
     │       └── pages/
-    │           └── categories_page.dart # Listado de tarjetas de categorías con modal de creación e iconos
+    │           └── categories_page.dart # CRUD de categorías con paleta expandida de 12 colores y 18 iconos redondeados
     └── expenses/
         ├── domain/
         │   ├── entities/
@@ -104,7 +106,7 @@ lib/
             ├── bloc/
             │   └── expenses_bloc.dart # Manejo de eventos CRUD de transacciones e historial por rangos
             └── pages/
-                ├── expenses_list_page.dart # Historial cronológico con barras de búsqueda y selectores de rangos
+                ├── expenses_list_page.dart # Historial cronológico con barra de búsqueda, selector de rangos y botón de exportar
                 ├── category_expenses_page.dart # Listado y agregados de transacciones filtradas por categoría
                 └── expense_form_page.dart # Registro con teclado numérico, chips dinámicos y fecha editable
 ```
@@ -137,18 +139,42 @@ lib/
 
 ---
 
-## 💾 4. Base de Datos Local y Siembra (Seeding)
+## 💾 4. Base de Datos Local, Siembra (Seeding) y Migración
 
 Se inicializa mediante `HiveDatabase.init()` en la pantalla de carga Splash. Si al iniciar la aplicación la caja (`Box`) de categorías se encuentra vacía, se realiza un autosebrado para mejorar la experiencia de primer uso del usuario:
-1. **Supermercado** (Azul, icono carrito)
-2. **Combustible** (Rojo, icono gasolinera)
-3. **Salidas** (Amarillo, icono restaurante)
-4. **Transporte** (Verde esmeralda, icono autobús)
-5. **Servicios** (Morado, icono energía)
+1. **Supermercado** (Azul, icono `shopping_cart_rounded`)
+2. **Combustible** (Rojo, icono `local_gas_station_rounded`)
+3. **Salidas** (Amarillo, icono `restaurant_rounded`)
+4. **Transporte** (Verde esmeralda, icono `directions_bus_rounded`)
+5. **Servicios** (Morado, icono `electrical_services_rounded`)
+
+### Robustez y Migración de Codepoints de Iconos
+Para asegurar que los iconos de las categorías se dibujen sin inconsistencias visuales ni discrepancias tipográficas en cualquier versión del SDK de Flutter, se sustituyeron los enteros hexadecimales arbitrarios por codepoints directos resueltos en tiempo de compilación (a través de `Icons.*_rounded.codePoint`).
+Durante el inicio, `HiveDatabase._migrateCategoryIcons()` detecta de manera automatizada codepoints previos deprecados o no estándar almacenados en la base de datos de categorías o cacheados en el historial de gastos, transformándolos transparentemente a sus equivalentes modernos de la familia Material Rounded.
 
 ---
 
-## 🧪 5. Suite de Pruebas Unitarias
+## 📊 5. Sistema de Exportación de Datos (Excel Report)
+
+La aplicación incorpora una utilidad premium en [export_helper.dart](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/lib/core/utils/export_helper.dart) para generar y compartir reportes financieros en formato Microsoft Excel:
+* **Estructura Multitab del Reporte**:
+  * **Pestaña "Resumen"**: Detalla la sumatoria consolidada gastada por cada categoría individual dentro del período seleccionado, junto a un indicador destacado del *TOTAL GENERAL*.
+  * **Pestaña "Detalle de Gastos"**: Muestra las transacciones agrupadas por categoría (ordenadas alfabéticamente). Para cada categoría, lista de forma cronológica descendente las transacciones individuales (Fecha, Descripción, Monto) acompañadas de su subtotal correspondiente.
+* **Flujos de Exportación Disponibles**:
+  * **Desde el Dashboard**: Un botón de exportación en la parte superior derecha de la tarjeta de total gastado permite extraer la analítica completa del mes calendario corriente o del período personalizado seleccionado.
+  * **Desde el Historial de Gastos**: Un botón en la barra superior del listado de transacciones permite exportar únicamente el subconjunto de gastos que coincide con los filtros aplicados (rango de fechas seleccionado y/o texto en la barra de búsqueda).
+
+---
+
+## 🎨 6. Paleta Visual y Catálogo de Categorías Expandido
+
+Se enriqueció el abanico de opciones para crear categorías personalizadas:
+* **Colores**: Se expandió la grilla a 12 colores distintivos curados de la paleta Material/Tailwind para dar mayor identidad y contraste visual al dashboard.
+* **Iconografía**: El selector de iconos ahora expone 18 alternativas estilizadas y redondeadas que abarcan diversas aristas de consumo (compras, combustible, banco, deportes, servicios, vehículos, seguridad, restaurantes, buses, cine, gimnasio, educación, hogar, salud, viajes, tarjetas de crédito, regalos y mascotas).
+
+---
+
+## 🧪 7. Suite de Pruebas Unitarias
 
 Ubicada en `test/widget_test.dart`, implementa pruebas con stubs locales que simulan el repositorio:
 * **Agregaciones de gastos**: Verifica la sumatoria de montos.

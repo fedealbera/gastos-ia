@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../features/categories/data/models/category_model.dart';
 import '../../features/expenses/data/models/expense_model.dart';
@@ -39,6 +40,9 @@ class HiveDatabase {
 
     // Seed default categories if they are empty
     await _seedDefaultCategories();
+    
+    // Migrate old hardcoded codepoints to correct compile-time codepoints
+    await _migrateCategoryIcons();
   }
 
   static Future<void> _seedDefaultCategories() async {
@@ -48,41 +52,92 @@ class HiveDatabase {
           id: 'cat_supermarket',
           name: 'Supermercado',
           colorHex: '#3B82F6', // Blue 500
-          iconCodePoint: 0xe57c, // shopping_cart
+          iconCodePoint: Icons.shopping_cart_rounded.codePoint,
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: 'cat_fuel',
           name: 'Combustible',
           colorHex: '#EF4444', // Red 500
-          iconCodePoint: 0xe30c, // local_gas_station
+          iconCodePoint: Icons.local_gas_station_rounded.codePoint,
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: 'cat_outings',
           name: 'Salidas',
           colorHex: '#F59E0B', // Amber 500
-          iconCodePoint: 0xe574, // restaurant
+          iconCodePoint: Icons.restaurant_rounded.codePoint,
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: 'cat_transport',
           name: 'Transporte',
           colorHex: '#10B981', // Emerald 500
-          iconCodePoint: 0xe530, // directions_bus
+          iconCodePoint: Icons.directions_bus_rounded.codePoint,
           createdAt: DateTime.now(),
         ),
         CategoryModel(
           id: 'cat_services',
           name: 'Servicios',
           colorHex: '#8B5CF6', // Purple 500
-          iconCodePoint: 0xe0b0, // electrical_services
+          iconCodePoint: Icons.electrical_services_rounded.codePoint,
           createdAt: DateTime.now(),
         ),
       ];
 
       for (final cat in defaultCategories) {
         await _categoryBox!.put(cat.id, cat);
+      }
+    }
+  }
+
+  static Future<void> _migrateCategoryIcons() async {
+    // Maps old wrong/deprecated hex code points to current SDK code points
+    final oldToNew = {
+      0xe57c: Icons.shopping_cart_rounded.codePoint,
+      0xe30c: Icons.local_gas_station_rounded.codePoint,
+      0xe574: Icons.restaurant_rounded.codePoint,
+      0xe530: Icons.directions_bus_rounded.codePoint,
+      0xe0b0: Icons.electrical_services_rounded.codePoint,
+    };
+
+    // Migrate categories
+    for (final key in _categoryBox!.keys) {
+      final cat = _categoryBox!.get(key);
+      if (cat != null && oldToNew.containsKey(cat.iconCodePoint)) {
+        final newCode = oldToNew[cat.iconCodePoint]!;
+        await _categoryBox!.put(
+          key,
+          CategoryModel(
+            id: cat.id,
+            name: cat.name,
+            colorHex: cat.colorHex,
+            iconCodePoint: newCode,
+            createdAt: cat.createdAt,
+          ),
+        );
+      }
+    }
+
+    // Migrate cached category icons in expenses
+    for (final key in _expenseBox!.keys) {
+      final exp = _expenseBox!.get(key);
+      if (exp != null && oldToNew.containsKey(exp.categoryIconCodePoint)) {
+        final newCode = oldToNew[exp.categoryIconCodePoint]!;
+        await _expenseBox!.put(
+          key,
+          ExpenseModel(
+            id: exp.id,
+            categoryId: exp.categoryId,
+            categoryName: exp.categoryName,
+            categoryColorHex: exp.categoryColorHex,
+            categoryIconCodePoint: newCode,
+            amount: exp.amount,
+            description: exp.description,
+            expenseDate: exp.expenseDate,
+            createdAt: exp.createdAt,
+          ),
+        );
       }
     }
   }
