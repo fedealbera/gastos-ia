@@ -26,6 +26,9 @@ class HiveDatabase {
   }
 
   static Future<void> init() async {
+    if (_categoryBox != null && _expenseBox != null && _settingsBox != null) {
+      return;
+    }
     // Initialize Hive for Flutter
     await Hive.initFlutter();
 
@@ -39,13 +42,13 @@ class HiveDatabase {
     _settingsBox = await Hive.openBox('settings');
 
     // Seed default categories if they are empty
-    await _seedDefaultCategories();
+    await seedDefaultCategories();
     
     // Migrate old hardcoded codepoints to correct compile-time codepoints
     await _migrateCategoryIcons();
   }
 
-  static Future<void> _seedDefaultCategories() async {
+  static Future<void> seedDefaultCategories() async {
     if (_categoryBox!.isEmpty) {
       final defaultCategories = [
         CategoryModel(

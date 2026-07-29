@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "947308085878",
+    "project_id": "gastos-ia-3a77d",
+    "storage_bucket": "gastos-ia-3a77d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:947308085878:android:e72ee6a8f833b97edf5557",
+        "android_client_info": {
+          "package_name": "com.leapfactor.gastosia.gastos_ia"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "947308085878-1q9t149u18nhi23v5n2dgdjqm27r4fm9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.leapfactor.gastosia.gastos_ia",
+            "certificate_hash": "06b32a05b86a67768ac61fc51dd10820e5247ea1"
+          }
+        },
+        {
+          "client_id": "947308085878-iqj1kiulr6jrbnu0t0mqg63ldb466e6t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.leapfactor.gastosia.gastos_ia",
+            "certificate_hash": "eb28d70c16baeb52f36c37f6220314c0fa5b04af"
+          }
+        },
+        {
+          "client_id": "947308085878-v8eli2pea1rql107jip9vu5pf1fl8sqo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvDGkF6Wi2HRNCROPWytffVx2qofs8Z4A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "947308085878-v8eli2pea1rql107jip9vu5pf1fl8sqo.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "947308085878-4mv20vcrn6sd30tc9v410bufs18293i8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.leapfactor.gastosia.gastosIa"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

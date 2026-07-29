@@ -14,6 +14,9 @@ import '../../../expenses/domain/entities/expense.dart';
 import '../../../expenses/domain/usecases/get_expenses_by_date_range.dart';
 import '../../domain/entities/dashboard_stats.dart';
 import '../../../../core/database/hive_database.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
+import '../../../../core/services/sync_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -29,6 +32,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _isCustomRange = false;
   DateTime? _customStartDate;
   DateTime? _customEndDate;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -66,145 +70,560 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return BlocProvider<DashboardBloc>(
       create: (_) => _dashboardBloc,
-      child: Scaffold(
-        body: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              _loadData();
-            },
-            color: theme.colorScheme.primary,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-                child: BlocBuilder<DashboardBloc, DashboardState>(
-                  builder: (context, state) {
-                    if (state is DashboardLoading) {
-                      return const SizedBox(
-                        height: 500,
-                        child: Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    } else if (state is DashboardError) {
-                      return SizedBox(
-                        height: 500,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.error_outline_rounded, size: 64, color: Colors.redAccent),
-                              const SizedBox(height: 16),
-                              Text('Ocurrió un error', style: theme.textTheme.titleMedium),
-                              const SizedBox(height: 8),
-                              Text(state.message, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
-                              const SizedBox(height: 24),
-                              ElevatedButton(
-                                onPressed: _loadData,
-                                child: const Text('Reintentar'),
+      child: BlocListener<AuthCubit, AuthState>(
+        listener: (context, authState) async {
+          final messenger = ScaffoldMessenger.of(context);
+          if (authState is AuthLoading) {
+            setState(() {
+              _isSyncing = true;
+            });
+          } else if (authState is AuthError) {
+            setState(() {
+              _isSyncing = false;
+            });
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('Error al iniciar sesión: ${authState.message}'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          } else if (authState is Unauthenticated) {
+            setState(() {
+              _isSyncing = false;
+            });
+          } else if (authState is Authenticated) {
+            // Si el usuario vincula su cuenta desde el Dashboard
+            if (_userName != authState.user.displayName) {
+              setState(() {
+                _isSyncing = true;
+              });
+              try {
+                final syncService = getIt<SyncService>();
+                await syncService.syncOnLogin(authState.user.uid);
+                final displayName = authState.user.displayName ?? 'Usuario Google';
+                await HiveDatabase.settingsBox.put('userName', displayName);
+                setState(() {
+                  _userName = displayName;
+                  _isSyncing = false;
+                });
+                _loadData(); // Recargar datos combinados
+              } catch (e) {
+                setState(() {
+                  _isSyncing = false;
+                });
+                if (mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error al sincronizar datos: $e'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            } else {
+              setState(() {
+                _isSyncing = false;
+              });
+            }
+          }
+        },
+        child: Stack(
+          children: [
+            Scaffold(
+              body: SafeArea(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    _loadData();
+                  },
+                  color: theme.colorScheme.primary,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+                      child: BlocBuilder<DashboardBloc, DashboardState>(
+                        builder: (context, state) {
+                          if (state is DashboardLoading) {
+                            return const SizedBox(
+                              height: 500,
+                              child: Center(
+                                child: CircularProgressIndicator(),
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    } else if (state is DashboardLoaded) {
-                      final stats = state.stats;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // App Branding
-                          _buildBranding(theme),
-                          const SizedBox(height: 16.0),
-
-                          // Date Picker Section (Monthly or Custom range)
-                          _buildDatePickerSection(theme, isDark),
-                          const SizedBox(height: 24.0),
-
-                          // Total spent card
-                          _buildTotalSpentCard(theme, isDark, stats.totalSpent, currencyFormat),
-                          const SizedBox(height: 24.0),
-
-                          // Quick Action Buttons
-                          _buildQuickActions(theme, isDark),
-                          const SizedBox(height: 28.0),
-
-                          // Dashboard charts & analytics
-                          if (stats.totalSpent > 0) ...[
-                            Text('Distribución de Gastos', style: theme.textTheme.headlineMedium),
-                            const SizedBox(height: 16.0),
-                            _buildPieChartSection(theme, isDark, stats, currencyFormat),
-                            const SizedBox(height: 28.0),
-
-                            _buildHighlightsSection(theme, isDark, stats, currencyFormat),
-                            const SizedBox(height: 28.0),
-                          ] else
-                            _buildEmptyState(theme, isDark),
-
-                          // Recent transaction list
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Gastos Recientes', style: theme.textTheme.headlineMedium),
-                              TextButton(
-                                onPressed: () async {
-                                  await context.push(AppRouter.expenses);
-                                  _loadData();
-                                },
-                                child: Text(
-                                  'Ver Todo',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                            );
+                          } else if (state is DashboardError) {
+                            return SizedBox(
+                              height: 500,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline_rounded, size: 64, color: Colors.redAccent),
+                                    const SizedBox(height: 16),
+                                    Text('Ocurrió un error', style: theme.textTheme.titleMedium),
+                                    const SizedBox(height: 8),
+                                    Text(state.message, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
+                                    const SizedBox(height: 24),
+                                    ElevatedButton(
+                                      onPressed: _loadData,
+                                      child: const Text('Reintentar'),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12.0),
-                          _buildRecentExpensesList(theme, isDark, stats.recentExpenses, currencyFormat),
-                          const SizedBox(height: 40.0),
-                        ],
-                      );
-                    }
-                    return const SizedBox();
-                  },
+                            );
+                          } else if (state is DashboardLoaded) {
+                            final stats = state.stats;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // App Branding
+                                _buildBranding(theme),
+                                const SizedBox(height: 16.0),
+
+                                // Date Picker Section (Monthly or Custom range)
+                                _buildDatePickerSection(theme, isDark),
+                                const SizedBox(height: 24.0),
+
+                                // Total spent card
+                                _buildTotalSpentCard(theme, isDark, stats.totalSpent, currencyFormat),
+                                const SizedBox(height: 24.0),
+
+                                // Quick Action Buttons
+                                _buildQuickActions(theme, isDark),
+                                const SizedBox(height: 28.0),
+
+                                // Dashboard charts & analytics
+                                if (stats.totalSpent > 0) ...[
+                                  Text('Distribución de Gastos', style: theme.textTheme.headlineMedium),
+                                  const SizedBox(height: 16.0),
+                                  _buildPieChartSection(theme, isDark, stats, currencyFormat),
+                                  const SizedBox(height: 28.0),
+
+                                  _buildHighlightsSection(theme, isDark, stats, currencyFormat),
+                                  const SizedBox(height: 28.0),
+                                ] else
+                                  _buildEmptyState(theme, isDark),
+
+                                // Recent transaction list
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Gastos Recientes', style: theme.textTheme.headlineMedium),
+                                    TextButton(
+                                      onPressed: () async {
+                                        await context.push(AppRouter.expenses);
+                                        _loadData();
+                                      },
+                                      child: Text(
+                                        'Ver Todo',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12.0),
+                                _buildRecentExpensesList(theme, isDark, stats.recentExpenses, currencyFormat),
+                                const SizedBox(height: 40.0),
+                              ],
+                            );
+                          }
+                          return const SizedBox();
+                        },
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            if (_isSyncing)
+              Container(
+                color: Colors.black54,
+                child: Center(
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 32.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 24.0),
+                          Text(
+                            'Sincronizando tus finanzas...',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildBranding(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Hola $_userName',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
+    final isDark = theme.brightness == Brightness.dark;
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, authState) {
+        Widget avatarWidget;
+        bool isGoogleUser = false;
+        String? userEmail;
+        String? photoUrl;
+
+        if (authState is Authenticated) {
+          isGoogleUser = true;
+          userEmail = authState.user.email;
+          photoUrl = authState.user.photoURL;
+
+          avatarWidget = CircleAvatar(
+            radius: 20,
+            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+            child: photoUrl == null
+                ? Text(
+                    _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
+          );
+        } else {
+          avatarWidget = CircleAvatar(
+            radius: 20,
+            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            child: Icon(
+              Icons.person_outline_rounded,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              size: 20,
             ),
-            IconButton(
-              icon: const Icon(Icons.edit_rounded, size: 20),
-              tooltip: 'Editar nombre',
-              onPressed: _showEditNameDialog,
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Hola $_userName',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          if (isGoogleUser) ...[
+                            const SizedBox(width: 8.0),
+                            const Icon(
+                              Icons.cloud_done_rounded,
+                              color: Color(0xFF10B981),
+                              size: 18,
+                            ),
+                          ],
+                        ],
+                      ),
+                      Text(
+                        'Controla tus finanzas inteligentes',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _showProfileBottomSheet(context, isGoogleUser, userEmail, photoUrl),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isGoogleUser
+                            ? theme.colorScheme.primary
+                            : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: avatarWidget,
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-        Text(
-          'Controla tus finanzas inteligentes',
-          style: theme.textTheme.bodyMedium,
-        ),
-      ],
+        );
+      },
     );
+  }
+
+  void _showProfileBottomSheet(
+    BuildContext context,
+    bool isGoogleUser,
+    String? email,
+    String? photoUrl,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24.0),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                      child: photoUrl == null
+                          ? Text(
+                              _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontSize: 24.0,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 16.0),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _userName,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (email != null) ...[
+                            const SizedBox(height: 4.0),
+                            Text(
+                              email,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24.0),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: isGoogleUser
+                        ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                        : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16.0),
+                    border: Border.all(
+                      color: isGoogleUser
+                          ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isGoogleUser ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                        color: isGoogleUser ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                      ),
+                      const SizedBox(width: 12.0),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isGoogleUser ? 'Sincronización en la Nube Activa' : 'Modo Almacenamiento Local',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: isGoogleUser ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                              ),
+                            ),
+                            const SizedBox(height: 2.0),
+                            Text(
+                              isGoogleUser
+                                  ? 'Tus finanzas inteligentes están seguras en Firebase Firestore.'
+                                  : 'Inicia sesión para respaldar tus datos y evitar perderlos si cambias de celular o se rompe.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32.0),
+                if (isGoogleUser) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52.0,
+                    child: TextButton.icon(
+                      onPressed: () => _handleLogout(context),
+                      icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                      label: const Text(
+                        'Cerrar Sesión',
+                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                      ),
+                      style: TextButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52.0,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.read<AuthCubit>().loginWithGoogle();
+                      },
+                      icon: Image.network(
+                        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1024px-Google_%22G%22_logo.svg.png',
+                        height: 20.0,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.login_rounded, size: 20.0),
+                      ),
+                      label: const Text(
+                        'Vincular Cuenta de Google',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16.0),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12.0),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52.0,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showEditNameDialog();
+                      },
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text('Cambiar Nombre'),
+                      style: OutlinedButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                        ),
+                        side: BorderSide(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    final authCubit = context.read<AuthCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    final nav = Navigator.of(this.context);
+
+    // Mostrar pantalla de carga
+    showDialog(
+      context: this.context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Asegurando y respaldando tus datos...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final syncService = getIt<SyncService>();
+      final authState = authCubit.state;
+      if (authState is Authenticated) {
+        await syncService.syncAndClearLocalData(authState.user.uid);
+      }
+
+      await authCubit.logout();
+
+      if (mounted) {
+        nav.pop(); // Cierra dialogo de carga
+        router.go(AppRouter.splash); // Reinicia a Splash
+      }
+    } catch (e) {
+      if (mounted) {
+        nav.pop();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Error al cerrar sesión: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   void _showEditNameDialog() {
