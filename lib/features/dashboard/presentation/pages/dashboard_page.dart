@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/routes/app_router.dart';
@@ -33,6 +34,7 @@ class _DashboardPageState extends State<DashboardPage> {
   DateTime? _customStartDate;
   DateTime? _customEndDate;
   bool _isSyncing = false;
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -41,6 +43,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _selectedMonth = DateTime.now();
     _userName = HiveDatabase.settingsBox.get('userName', defaultValue: 'Federico') as String;
     _loadData();
+    _loadVersionInfo();
   }
 
   void _loadData() {
@@ -226,6 +229,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                 const SizedBox(height: 12.0),
                                 _buildRecentExpensesList(theme, isDark, stats.recentExpenses, currencyFormat),
                                 const SizedBox(height: 40.0),
+                                _buildVersionFooter(theme, isDark),
+                                const SizedBox(height: 24.0),
                               ],
                             );
                           }
@@ -280,11 +285,13 @@ class _DashboardPageState extends State<DashboardPage> {
         bool isGoogleUser = false;
         String? userEmail;
         String? photoUrl;
+        String? userId;
 
         if (authState is Authenticated) {
           isGoogleUser = true;
           userEmail = authState.user.email;
           photoUrl = authState.user.photoURL;
+          userId = authState.user.uid;
 
           avatarWidget = CircleAvatar(
             radius: 20,
@@ -323,11 +330,15 @@ class _DashboardPageState extends State<DashboardPage> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            'Hola $_userName',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
+                          Flexible(
+                            child: Text(
+                              'Hola $_userName',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (isGoogleUser) ...[
@@ -347,6 +358,14 @@ class _DashboardPageState extends State<DashboardPage> {
                     ],
                   ),
                 ),
+                if (isGoogleUser && userId != null) ...[
+                  IconButton(
+                    icon: const Icon(Icons.sync_rounded),
+                    tooltip: 'Sincronizar ahora',
+                    onPressed: () => _handleManualSync(context, userId!),
+                  ),
+                  const SizedBox(width: 8.0),
+                ],
                 GestureDetector(
                   onTap: () => _showProfileBottomSheet(context, isGoogleUser, userEmail, photoUrl),
                   child: Container(
@@ -564,6 +583,19 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 24.0),
+                  if (_appVersion.isNotEmpty) ...[
+                    Center(
+                      child: Text(
+                        _appVersion,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                          fontSize: 12.0,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -571,6 +603,44 @@ class _DashboardPageState extends State<DashboardPage> {
         );
       },
     );
+  }
+
+  Future<void> _handleManualSync(BuildContext context, String userId) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      final syncService = getIt<SyncService>();
+      await syncService.syncOnLogin(userId);
+      
+      _loadData();
+
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Sincronización completada con éxito'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Error al sincronizar: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -624,6 +694,33 @@ class _DashboardPageState extends State<DashboardPage> {
         );
       }
     }
+  }
+
+  Future<void> _loadVersionInfo() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = 'v${packageInfo.version} (${packageInfo.buildNumber})';
+        });
+      }
+    } catch (_) {}
+  }
+
+  Widget _buildVersionFooter(ThemeData theme, bool isDark) {
+    if (_appVersion.isEmpty) return const SizedBox.shrink();
+    return Center(
+      child: Opacity(
+        opacity: 0.5,
+        child: Text(
+          _appVersion,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ),
+    );
   }
 
   void _showEditNameDialog() {

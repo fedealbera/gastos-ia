@@ -170,6 +170,8 @@ El servicio `SyncService` gestiona la consistencia de los datos históricos y en
   2. Sube todos los gastos y categorías locales de Hive (creados en modo invitado) que no existan en Firestore.
 * **Sincronización en Tiempo Real**:
   Los repositorios de datos (`ExpenseRepositoryImpl` y `CategoryRepositoryImpl`) inyectan `SyncService` para propagar de inmediato cada creación o eliminación hacia Firestore cuando `AuthCubit` reporta que el usuario está autenticado.
+* **Sincronización a Demanda (Manual Sync)**:
+  Los usuarios con sesión activa de Google pueden iniciar una sincronización bidireccional manual presionando el botón de sincronización (`sync_rounded`) ubicado en la cabecera superior (Branding) de la Home. Esta acción ejecuta `syncOnLogin(userId)` mostrando una pantalla de carga temporal y notificando el estado final mediante un `SnackBar` para prevenir inconsistencias de red.
 * **Protección contra Pérdidas en Cierre de Sesión (Secure Logout)**:
   Al hacer clic en *Cerrar Sesión*, el sistema muestra una pantalla de carga y ejecuta `syncAndClearLocalData(userId)` de forma obligatoria. Sube cualquier transacción local remanente a Firestore y, solo al confirmarse la carga exitosa, procede a limpiar las cajas de Hive, a resembrar las categorías por defecto y a desloguear la sesión de Google, garantizando **cero pérdidas de datos**.
 
@@ -194,3 +196,21 @@ Para asegurar que los iconos se dibujen correctamente bajo cualquier SDK, `HiveD
 * **minSdkVersion**: Incrementado a **`23`** (Android 6.0) en `android/app/build.gradle.kts` para cumplir con las especificaciones del SDK de Firebase Auth.
 * **Kotlin Compiler**: Actualizado a la versión **`2.1.0`** en `android/settings.gradle.kts` para resolver errores de compilación de metadatos incompatibles con dependencias modernas (como `package_info_plus`).
 * **Seguridad de Firestore**: Configurado bajo reglas que restringen estrictamente la lectura y escritura de los documentos de la colección `/users/{userId}` al usuario cuyo UID coincida con el UID autenticado en la petición (`request.auth.uid == userId`).
+
+---
+
+## 🚀 7. Compilación y Generación de Release
+
+### Desactivación de Tree Shaking de Iconos (Dynamic IconData)
+Debido a que la aplicación permite configurar iconos de categorías de manera dinámica (guardando el código de punto `iconCodePoint` en la base de datos local e instanciando `IconData` en tiempo de ejecución, por ejemplo: `IconData(codePoint, fontFamily: 'MaterialIcons')`), el compilador AOT de Flutter no puede determinar estáticamente en tiempo de compilación qué iconos serán utilizados.
+
+Por esta razón, al compilar el proyecto en modo release para Android o iOS, se debe agregar el flag `--no-tree-shake-icons` para evitar fallos de compilación:
+
+* **Para compilar APK de Release**:
+  ```bash
+  flutter build apk --release --no-tree-shake-icons
+  ```
+* **Para compilar Android App Bundle (AAB)**:
+  ```bash
+  flutter build appbundle --release --no-tree-shake-icons
+  ```
