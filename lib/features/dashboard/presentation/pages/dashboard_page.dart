@@ -1056,13 +1056,16 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
               const SizedBox(height: 8.0),
-              Text(
-                '\$ ${NumberFormat('#,##0.00', 'es_AR').format(totalSpent)}',
-                style: theme.textTheme.headlineLarge?.copyWith(
-                  color: Colors.white,
-                  fontSize: 42.0,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '\$ ${NumberFormat('#,##0.00', 'es_AR').format(totalSpent)}',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    color: Colors.white,
+                    fontSize: 42.0,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1,
+                  ),
                 ),
               ),
               const SizedBox(height: 16.0),
@@ -1127,11 +1130,16 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: Icon(Icons.add_rounded, color: theme.colorScheme.primary, size: 28),
                   ),
                   const SizedBox(height: 10.0),
-                  Text(
-                    'Nuevo Gasto',
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Nuevo Gasto',
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 1,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1166,11 +1174,16 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: Icon(Icons.grid_view_rounded, color: theme.colorScheme.secondary, size: 28),
                   ),
                   const SizedBox(height: 10.0),
-                  Text(
-                    'Categorías',
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Categorías',
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 1,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1205,11 +1218,16 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: const Icon(Icons.history_rounded, color: Color(0xFF8B5CF6), size: 28),
                   ),
                   const SizedBox(height: 10.0),
-                  Text(
-                    'Historial',
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Historial',
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 1,
+                      ),
+                    ),
                   ),
                 ],
               ),

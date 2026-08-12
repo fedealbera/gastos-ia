@@ -84,7 +84,8 @@ class _ExpensesListPageState extends State<ExpensesListPage> {
       if (_searchQuery.isEmpty) return true;
       return (expense.description?.toLowerCase().contains(_searchQuery) ?? false) ||
           expense.categoryName.toLowerCase().contains(_searchQuery);
-    }).toList();
+    }).toList()
+      ..sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
 
     if (filtered.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -244,7 +245,8 @@ class _ExpensesListPageState extends State<ExpensesListPage> {
                       if (_searchQuery.isEmpty) return true;
                       return (expense.description?.toLowerCase().contains(_searchQuery) ?? false) ||
                           expense.categoryName.toLowerCase().contains(_searchQuery);
-                    }).toList();
+                    }).toList()
+                      ..sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
 
                     if (filtered.isEmpty) {
                       return Center(

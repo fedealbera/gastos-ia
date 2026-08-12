@@ -113,7 +113,7 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
                     AppLogo(size: 130.0),
                     const SizedBox(height: 32.0),
                     Text(
-                      'Gastos IA',
+                      'Gastos',
                       style: theme.textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         letterSpacing: -1.5,

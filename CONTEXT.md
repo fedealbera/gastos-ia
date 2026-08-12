@@ -122,8 +122,8 @@ lib/
             ├── bloc/
             │   └── expenses_bloc.dart # Manejo de eventos CRUD de transacciones e historial por rangos
             └── pages/
-                ├── expenses_list_page.dart # Historial cronológico con barra de búsqueda, selector de rangos y botón de exportar
-                ├── category_expenses_page.dart # Listado y agregados de transacciones filtradas por categoría
+                ├── expenses_list_page.dart # Historial cronológico (orden descendente) con barra de búsqueda, selector de rangos y botón de exportar
+                ├── category_expenses_page.dart # Listado y agregados de transacciones filtradas por categoría (diseño de cabecera horizontal compacta)
                 └── expense_form_page.dart # Registro con teclado numérico, chips dinámicos y fecha editable
 ```
 
@@ -214,3 +214,26 @@ Por esta razón, al compilar el proyecto en modo release para Android o iOS, se 
   ```bash
   flutter build appbundle --release --no-tree-shake-icons
   ```
+
+---
+
+## 📈 8. Últimas Actualizaciones y Refinamientos (Versión 1.0.4+7)
+
+### A. Versión y Branding Simplificado
+* **Versión de la App**: Se actualizó la versión a `1.0.4+7` en [pubspec.yaml](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/pubspec.yaml).
+* **Splash Screen**: Se simplificó la presentación visual del título en [SplashPage](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/lib/features/splash/presentation/pages/splash_page.dart) de "Gastos IA" a "Gastos" para una identidad de marca más directa.
+
+### B. Ordenamiento Cronológico de Gastos
+Para asegurar que los gastos siempre se presenten de forma cronológica descendente (los más recientes primero):
+* **Capa de Datos/Repositorio**: En [ExpenseRepositoryImpl](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/lib/features/expenses/data/repositories/expense_repository_impl.dart), la lista de gastos devuelta desde la persistencia local se ordena antes de ser entregada a la capa de negocio.
+* **Capa de Presentación**: En [ExpensesListPage](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/lib/features/expenses/presentation/pages/expenses_list_page.dart), se aplica el mismo criterio de ordenación `sort` tras aplicar los filtros de búsqueda en tiempo real, garantizando la consistencia visual en el historial.
+
+### C. Rediseño y Robustez de la Interfaz (Evitar Overflows)
+* **Cabecera de Categorías**: Se rediseñó la tarjeta de totales en [CategoryExpensesPage](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/lib/features/expenses/presentation/pages/category_expenses_page.dart) para que sea más compacta y balanceada horizontalmente, usando un diseño basado en filas (`Row`) en lugar del antiguo diseño vertical masivo.
+* **FittedBox para Textos Largos**: Se implementó el uso sistemático de `FittedBox` con `BoxFit.scaleDown` para evitar desbordamientos visuales (*overflow errors*) en textos dinámicos o que varían según el tamaño de la pantalla:
+  * El total gastado en el Dashboard ([DashboardPage](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/lib/features/dashboard/presentation/pages/dashboard_page.dart)).
+  * Las etiquetas de los botones de acción rápida del Dashboard ("Nuevo Gasto", "Categorías", "Historial").
+  * El monto total gastado en la cabecera de la página de gastos por categoría.
+
+### D. Configuración Local del Entorno
+* **Java Home Gradle**: Se añadió la configuración de `org.gradle.java.home` en [gradle.properties](file:///Users/federicoalbera/Documents/Proyectos/LeapFactor/Flutter/proyectos/gastos-ia/android/gradle.properties) apuntando al JDK 17 local para asegurar la compatibilidad de compilación.

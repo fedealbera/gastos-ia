@@ -16,7 +16,9 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   Future<List<Expense>> getExpenses() async {
     try {
       final models = await localDataSource.getExpenses();
-      return models.map((m) => m.toEntity()).toList();
+      final entities = models.map((m) => m.toEntity()).toList();
+      entities.sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
+      return entities;
     } catch (e) {
       throw DatabaseFailure('Error al obtener los gastos: $e');
     }

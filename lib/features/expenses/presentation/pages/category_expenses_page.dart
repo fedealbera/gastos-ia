@@ -147,8 +147,8 @@ class _CategoryExpensesPageState extends State<CategoryExpensesPage> {
     final formattedMonth = monthName[0].toUpperCase() + monthName.substring(1);
 
     return Container(
-      margin: const EdgeInsets.all(20.0),
-      padding: const EdgeInsets.all(24.0),
+      margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -162,81 +162,119 @@ class _CategoryExpensesPageState extends State<CategoryExpensesPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28.0),
+        borderRadius: BorderRadius.circular(24.0),
         boxShadow: [
           BoxShadow(
             color: categoryColor.withValues(alpha: 0.3),
-            blurRadius: 20.0,
-            offset: const Offset(0, 8),
+            blurRadius: 15.0,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Category icon
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              widget.categoryIconCodePoint != null
-                  ? IconData(widget.categoryIconCodePoint!,
-                      fontFamily: 'MaterialIcons')
-                  : Icons.category_rounded,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-          const SizedBox(height: 16.0),
-
-          // Category name
-          Text(
-            widget.categoryName,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4.0),
-
-          // Month label
-          Text(
-            formattedMonth,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
-          ),
-          const SizedBox(height: 16.0),
-
-          // Total amount
-          Text(
-            '\$ ${NumberFormat('#,##0.00', 'es_AR').format(totalAmount)}',
-            style: theme.textTheme.headlineLarge?.copyWith(
-              color: Colors.white,
-              fontSize: 38.0,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1,
-            ),
-          ),
-          const SizedBox(height: 12.0),
-
-          // Transaction count chip
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20.0),
-            ),
-            child: Text(
-              '$count ${count == 1 ? 'transacción' : 'transacciones'}',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              // Category icon (smaller & compact)
+              Container(
+                padding: const EdgeInsets.all(10.0),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  widget.categoryIconCodePoint != null
+                      ? IconData(widget.categoryIconCodePoint!,
+                          fontFamily: 'MaterialIcons')
+                      : Icons.category_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
-            ),
+              const SizedBox(width: 12.0),
+              
+              // Category name and month info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.categoryName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      formattedMonth,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8.0),
+
+              // Transaction count chip
+              Container(
+                constraints: const BoxConstraints(maxWidth: 120.0),
+                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '$count ${count == 1 ? 'transacción' : 'transacciones'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16.0),
+          
+          // Total amount section (modern, horizontal, scales dynamically)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'Total Gastado',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '\$ ${NumberFormat('#,##0.00', 'es_AR').format(totalAmount)}',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontSize: 28.0,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
